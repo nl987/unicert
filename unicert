@@ -1,0 +1,235 @@
+#!/bin/bash
+
+sys=$(basename $PWD)
+
+function key {
+  openssl genrsa -out $sys.key 4096
+}
+
+function csr {
+  if [ ! -f $sys.key ]; then
+    read -n 1 -p "No private key found. Do you want to create one? [y|Y]: " keyp
+    keyp=x$keyp
+    if [ $keyp = xy -o $keyp = xY ]; then
+      echo
+      key
+    else
+      exit 1
+    fi
+  fi
+
+  if [ -f $sys.crt.old ]; then
+    read -n 1 -p "Found a previous certificate. Do you actually want to autorenew? [y|Y]: " renewp
+    renewp=x$renewp
+    if [ $renewp = xy -o $renewp = xY ]; then
+      echo
+      renew
+      exit
+    fi
+  fi
+
+  read -e -p "Common name: " -i $sys.york.ac.uk cn
+
+  tmpl=$(mktemp)
+
+  cat <<. >$tmpl
+[ req ]
+default_bits        = 4096
+prompt              = no
+
+distinguished_name  = req_distinguished_name
+req_extensions      = req_exts
+
+[ req_distinguished_name ]
+C  = GB
+ST = North Yorkshire
+L  = York
+O  = University of York
+OU = IT Services
+CN = $cn
+
+[ req_exts ]
+subjectAltName = @alt_names
+
+[ alt_names ]
+.
+
+  i=1
+  while true; do
+    if [ -z $cn ]; then
+      read -e -p "DNS SAN (blank to end): " san
+    else
+      read -e -p "DNS SAN (blank to end): " -i $cn san
+      unset cn
+    fi
+
+    if [ -z $san ]; then
+      break
+    else
+      echo DNS.$i = $san >>$tmpl
+      i=$(( $i + 1 ))
+    fi
+  done
+
+  openssl req -new -config $tmpl -key $sys.key -out $sys.csr
+
+  rm $tmpl
+}
+
+function show {
+  if [ ! -f $sys.$1 ]; then
+    case $1 in
+      csr) echo No CSR found >&2 ;;
+      crt) echo No certificate found >&2 ;;
+    esac
+    exit 1
+  fi
+
+  case $1 in
+    csr) openssl req -text -noout -in $sys.csr ;;
+    crt) openssl x509 -text -noout -in $sys.crt ;;
+  esac
+}
+
+function raw {
+  if [ ! -f $sys.$1 ]; then
+    case $1 in
+      key) echo No private key found >&2 ;;
+      csr) echo No CSR found >&2 ;;
+      crt) echo No certificate found >&2 ;;
+    esac
+    exit 1
+  fi
+
+  case $1 in
+    key) cat $sys.key ;;
+    csr) cat $sys.csr ;;
+    crt) cat $sys.crt ;;
+  esac
+}
+
+function renew {
+  if [ ! -f $sys.key ]; then
+    read -n 1 -p "No private key found. Do you want to create one? [y|Y]: " keyp
+    keyp=x$keyp
+    if [ $keyp = xy -o $keyp = xY ]; then
+      echo
+      key
+    else
+      exit 1
+    fi
+  fi
+
+  if [ ! -f $sys.crt.old ]; then
+    read -n 1 -p "No previous certificate found. Do you want to try fetching from $sys.york.ac.uk:443? [y|Y]: " fetchp
+    fetchp=x$fetchp
+    if [ $fetchp = xy -o $fetchp = xY ]; then
+      echo
+      openssl s_client -showcerts -servername $sys.york.ac.uk -connect $sys.york.ac.uk:443 </dev/null 2>/dev/null | openssl x509 -out $sys.crt.old
+    else
+      exit 1
+    fi
+  fi
+
+  if [[ $(openssl x509 -text -noout -in $sys.crt.old | grep Subject:) =~ CN\ =\ ([^,]*) ]]; then
+    cn=${BASH_REMATCH[1]}
+  else
+    echo "No common name found in old cert"
+    exit 1
+  fi
+
+  tmpl=$(mktemp)
+
+  cat <<. >$tmpl
+[ req ]
+default_bits        = 4096
+prompt              = no
+
+distinguished_name  = req_distinguished_name
+req_extensions      = req_exts
+
+[ req_distinguished_name ]
+C  = GB
+ST = North Yorkshire
+L  = York
+O  = University of York
+OU = IT Services
+CN = $cn
+
+[ req_exts ]
+subjectAltName = @alt_names
+
+[ alt_names ]
+DNS.1 = $cn
+.
+
+  i=2
+  for dns in $(openssl x509 -text -noout -in $sys.crt.old | grep DNS:); do
+    [[ $dns =~ DNS:([^,]*) ]]
+    [[ ${BASH_REMATCH[1]} == $cn ]] && continue
+    echo DNS.$i = ${BASH_REMATCH[1]} >>$tmpl
+    i=$(( $i + 1 ))
+  done
+
+  openssl req -new -config $tmpl -key $sys.key -out $sys.csr
+
+  rm $tmpl
+}
+
+function state {
+  [ -f $sys.crt.old ] && echo -n '[7mPrevious certificate[0m --> '
+  [ -f $sys.key ] && echo -n [7mPrivate key[0m || echo -n Private key
+  echo -n " --> "
+  [ -f $sys.csr ] && echo -n [7mCSR[0m         || echo -n CSR
+  echo -n " --> "
+  [ -f $sys.crt ] && echo [7mCertificate[0m || echo Certificate
+}
+
+function usage {
+  cat <<. >&2
+Usage:  unicert make {key,csr}
+          Create a private key or CSR
+        unicert show {csr,crt}
+          Detail a CSR or certificate
+        unicert raw  {key,csr,crt}
+          Print the ASCII format private key, CSR, or certificate
+
+        unicert renew
+          Create a CSR for a renewal from an existing certificate (in ....crt.old)
+
+        unicert state
+          Detail the current situation
+
+        unicert {,help,usage}
+          Show this help
+.
+  exit 1
+}
+
+case $1 in
+  make)
+    case $2 in
+      key) key ;;
+      csr) csr ;;
+      *) usage ;;
+    esac
+    ;;
+  show)
+    case $2 in
+      csr) show csr ;;
+      crt) show crt ;;
+      *) usage ;;
+    esac
+    ;;
+  raw)
+    case $2 in
+      key) raw key ;;
+      csr) raw csr ;;
+      crt) raw crt ;;
+      *) usage ;;
+    esac
+    ;;
+  renew) renew ;;
+  state) state ;;
+  *) usage ;;
+esac
