@@ -40,31 +40,3 @@ Certificate Request:
         Version: 1 (0x0)
         Subject: C = GB, ST = North Yorkshire, L = York, O = University of York, OU = IT Services, CN = www.york.ac.uk
 [...]
-
-h2. Usage
-
-bc.. $ unicert
-Usage:  unicert make {key,csr}
-          Create a private key or CSR
-        unicert show {csr,crt}
-          Detail a CSR or certificate
-        unicert raw  {key,csr,crt}
-          Print the ASCII format private key, CSR, or certificate
-
-        unicert renew
-          Create a CSR for a renewal from an existing certificate (in ....crt.old)
-
-        unicert state
-          Detail the current situation
-
-        unicert set shortname <shortname>
-          Override the default shortname of the directory name
-        unicert set fqdn <fqdn>
-          Override the default CN of shortname.york.ac.uk
-        unicert show {shortname,fqdn}
-          Show the current shortname or fqdn
-        unicert unset {shortname,fqdn}
-          Unset a shortname or fqdn override
-
-        unicert {,help,usage}
-          Show this help

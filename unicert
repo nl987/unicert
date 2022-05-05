@@ -107,6 +107,7 @@ function raw {
       key) echo No private key found >&2 ;;
       csr) echo No CSR found >&2 ;;
       crt) echo No certificate found >&2 ;;
+      bundle) echo No certificate bundle found >&2 ;;
     esac
     exit 1
   fi
@@ -115,6 +116,7 @@ function raw {
     key) cat $sys.key ;;
     csr) cat $sys.csr ;;
     crt) cat $sys.crt ;;
+    bundle) cat $sys.bundle ;;
   esac
 }
 
@@ -186,13 +188,38 @@ DNS.1 = $cn
   rm $tmpl
 }
 
+function bundle {
+  cp $sys.crt $sys.bundle
+
+  i=1
+  while true; do
+    if [ -f $sys.$i.crt ]; then
+      read -e -p "Intermediate #$i (blank to end): " -i $sys.$i.crt ica
+    else
+      read -e -p "Intermediate #$i (blank to end): " ica
+    fi
+
+    if [ -z "$ica" ]; then
+      break
+    else
+      cat "$ica" >> $sys.bundle
+      i=$(( $i + 1 ))
+    fi
+  done
+}
+
+function unbundle {
+  rm -f $sys.bundle
+}
+
 function state {
   [ -f $sys.crt.old ] && echo -n '[7mPrevious certificate[0m --> '
   [ -f $sys.key ] && echo -n [7mPrivate key[0m || echo -n Private key
   echo -n " --> "
   [ -f $sys.csr ] && echo -n [7mCSR[0m         || echo -n CSR
   echo -n " --> "
-  [ -f $sys.crt ] && echo [7mCertificate[0m || echo Certificate
+  [ -f $sys.crt ] && echo -n [7mCertificate[0m || echo -n Certificate
+  [ -f $sys.bundle ] && echo " --> [7mBundle[0m" || echo
 }
 
 function sset {
@@ -222,13 +249,18 @@ Usage:  unicert make {key,csr}
           Create a private key or CSR
         unicert show {csr,crt}
           Detail a CSR or certificate
-        unicert raw  {key,csr,crt}
-          Print the ASCII format private key, CSR, or certificate
+        unicert raw  {key,csr,crt,bundle}
+          Print the ASCII format private key, CSR, certificate, or certificate bundle
 
         unicert renew
           Create a CSR for a renewal from an existing certificate (in ....crt.old)
 
-        unicert state
+        unicert bundle
+          Create a bundle of this certificate and intermediate CAs
+        unicert unbundle
+          Remove certificate bundle
+
+        unicert status
           Detail the current situation
 
         unicert set shortname <shortname>
@@ -268,11 +300,14 @@ case $1 in
       key) raw key ;;
       csr) raw csr ;;
       crt) raw crt ;;
+      bundle) raw bundle ;;
       *) usage ;;
     esac
     ;;
   renew) renew ;;
-  state) state ;;
+  bundle) bundle ;;
+  unbundle) unbundle ;;
+  status) state ;;
   set)
     case $2 in
       shortname) sset shortname $3 ;;
