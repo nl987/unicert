@@ -1,6 +1,16 @@
 #!/bin/bash
 
-sys=$(basename $PWD)
+if [ -f .shortname ]; then
+  sys=$(<.shortname)
+else
+  sys=$(basename $PWD)
+fi
+
+if [ -f .fqdn ]; then
+  fqdn=$(<.fqdn)
+else
+  fqdn=$sys.york.ac.uk
+fi
 
 function key {
   openssl genrsa -out $sys.key 4096
@@ -28,7 +38,7 @@ function csr {
     fi
   fi
 
-  read -e -p "Common name: " -i $sys.york.ac.uk cn
+  read -e -p "Common name: " -i $fqdn cn
 
   tmpl=$(mktemp)
 
@@ -76,7 +86,7 @@ subjectAltName = @alt_names
   rm $tmpl
 }
 
-function show {
+function cshow {
   if [ ! -f $sys.$1 ]; then
     case $1 in
       csr) echo No CSR found >&2 ;;
@@ -121,11 +131,11 @@ function renew {
   fi
 
   if [ ! -f $sys.crt.old ]; then
-    read -n 1 -p "No previous certificate found. Do you want to try fetching from $sys.york.ac.uk:443? [y|Y]: " fetchp
+    read -n 1 -p "No previous certificate found. Do you want to try fetching from $fqdn:443? [y|Y]: " fetchp
     fetchp=x$fetchp
     if [ $fetchp = xy -o $fetchp = xY ]; then
       echo
-      openssl s_client -showcerts -servername $sys.york.ac.uk -connect $sys.york.ac.uk:443 </dev/null 2>/dev/null | openssl x509 -out $sys.crt.old
+      openssl s_client -showcerts -servername $fqdn -connect $fqdn:443 </dev/null 2>/dev/null | openssl x509 -out $sys.crt.old
     else
       exit 1
     fi
@@ -185,6 +195,27 @@ function state {
   [ -f $sys.crt ] && echo [7mCertificate[0m || echo Certificate
 }
 
+function sset {
+  case $1 in
+    shortname) echo $2 >.shortname ;;
+    fqdn) echo $2 >.fqdn ;;
+  esac
+}
+
+function sunset {
+  case $1 in
+    shortname) rm -f .shortname ;;
+    fqdn) rm -f .fqdn ;;
+  esac
+}
+
+function sshow {
+  case $1 in
+    shortname) echo $sys ;;
+    fqdn) echo $fqdn ;;
+  esac
+}
+
 function usage {
   cat <<. >&2
 Usage:  unicert make {key,csr}
@@ -199,6 +230,15 @@ Usage:  unicert make {key,csr}
 
         unicert state
           Detail the current situation
+
+        unicert set shortname <shortname>
+          Override the default shortname of the directory name
+        unicert set fqdn <fqdn>
+          Override the default CN of shortname.york.ac.uk
+        unicert show {shortname,fqdn}
+          Show the current shortname or fqdn
+        unicert unset {shortname,fqdn}
+          Unset a shortname or fqdn override
 
         unicert {,help,usage}
           Show this help
@@ -216,8 +256,10 @@ case $1 in
     ;;
   show)
     case $2 in
-      csr) show csr ;;
-      crt) show crt ;;
+      csr) cshow csr ;;
+      crt) cshow crt ;;
+      shortname) sshow shortname ;;
+      fqdn) sshow fqdn ;;
       *) usage ;;
     esac
     ;;
@@ -231,5 +273,19 @@ case $1 in
     ;;
   renew) renew ;;
   state) state ;;
+  set)
+    case $2 in
+      shortname) sset shortname $3 ;;
+      fqdn) sset fqdn $3 ;;
+      *) usage ;;
+    esac
+    ;;
+  unset)
+    case $2 in
+      shortname) sunset shortname ;;
+      fqdn) sunset fqdn ;;
+      *) usage ;;
+    esac
+    ;;
   *) usage ;;
 esac

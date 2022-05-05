@@ -1,3 +1,70 @@
 h1. Unicert
 
 p. Makes making CSRs simple... and because I hate webapps.
+
+p. Can make new keys and CSRs, and magically create renewal CSRs with minimal interaction
+
+h2. Examples
+
+h3. New Certificate
+
+bc.. test$ unicert make key
+Generating RSA private key, 4096 bit long modulus (2 primes)
+......................................................++++
+............................++++
+e is 65537 (0x010001)
+test$ unicert make csr
+Common name: test.york.ac.uk
+DNS SAN (blank to end): test.york.ac.uk
+DNS SAN (blank to end): 
+test$ unicert show csr
+Certificate Request:
+    Data:
+        Version: 1 (0x0)
+        Subject: C = GB, ST = North Yorkshire, L = York, O = University of York, OU = IT Services, CN = test.york.ac.uk
+[...]
+
+h3. Renew certificate
+
+bc.. test$ unicert set fqdn york.ac.uk
+test$ unicert renew
+No private key found. Do you want to create one? [y|Y]: y
+Generating RSA private key, 4096 bit long modulus (2 primes)
+...............................................................................................................................++++
+.....................................................................................................................................................................++++
+e is 65537 (0x010001)
+No previous certificate found. Do you want to try fetching from york.ac.uk:443? [y|Y]: y
+test$ unicert show csr
+Certificate Request:
+    Data:
+        Version: 1 (0x0)
+        Subject: C = GB, ST = North Yorkshire, L = York, O = University of York, OU = IT Services, CN = www.york.ac.uk
+[...]
+
+h2. Usage
+
+bc.. $ unicert
+Usage:  unicert make {key,csr}
+          Create a private key or CSR
+        unicert show {csr,crt}
+          Detail a CSR or certificate
+        unicert raw  {key,csr,crt}
+          Print the ASCII format private key, CSR, or certificate
+
+        unicert renew
+          Create a CSR for a renewal from an existing certificate (in ....crt.old)
+
+        unicert state
+          Detail the current situation
+
+        unicert set shortname <shortname>
+          Override the default shortname of the directory name
+        unicert set fqdn <fqdn>
+          Override the default CN of shortname.york.ac.uk
+        unicert show {shortname,fqdn}
+          Show the current shortname or fqdn
+        unicert unset {shortname,fqdn}
+          Unset a shortname or fqdn override
+
+        unicert {,help,usage}
+          Show this help
