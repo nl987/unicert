@@ -196,6 +196,7 @@ DNS.1 = $cn
 
 function bundle {
   cp $sys.crt $sys.bundle
+  echo Host: $sys.crt
 
   i=1
   while true; do
@@ -310,11 +311,12 @@ Certificate settings:
           Unset a shortname or fqdn override
 
 Key settings:
-        unicert set keying {rsa,ec,ed}
+        unicert set keying {ec,rsa,ed,custom OPTS}
           Specify method for keying and signing
+            ec: P-384 evilNIST curve keying with ECDSA/SHA-256 signing (default)
             rsa: 4096 bit RSA keying with SHA-256 signing
-            ec: P-384 evilNIST curve keying with ECDSA/SHA-256 signing
-            ed: Ed25519 Edwards curve keying and signing
+            ed: Ed25519 Edwards curve keying and signing (not CA/B approved)
+            custom OPTS: interpret OPTS remainder of command as options to openssl genpkey
         unicert unset keying
           Remove keying method override
         unicert show keying
