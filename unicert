@@ -13,7 +13,13 @@ else
 fi
 
 function key {
-  openssl genrsa -out $sys.key 4096
+  if [ -f .keying ]; then
+    keying=$(<.keying)
+  else
+    keying="-algorithm ec -pkeyopt ec_paramgen_curve:P-384 -pkeyopt ec_param_enc:named_curve"
+  fi
+
+  openssl genpkey $keying -out $sys.key
 }
 
 function csr {
@@ -226,6 +232,15 @@ function sset {
   case $1 in
     shortname) echo $2 >.shortname ;;
     fqdn) echo $2 >.fqdn ;;
+    keying)
+      case $2 in
+        rsa) echo "-algorithm rsa -pkeyopt rsa_keygen_bits:4096" >.keying ;;
+        ec) rm -f .keying ;;
+        ed) echo "-algorithm ed25519" >.keying ;;
+        custom) shift; shift; echo $* >.keying ;;
+        *) usage ;;
+      esac
+      ;;
   esac
 }
 
@@ -233,6 +248,7 @@ function sunset {
   case $1 in
     shortname) rm -f .shortname ;;
     fqdn) rm -f .fqdn ;;
+    keying) rm -f .keying ;;
   esac
 }
 
@@ -240,29 +256,50 @@ function sshow {
   case $1 in
     shortname) echo $sys ;;
     fqdn) echo $fqdn ;;
+    keying)
+      if [ -f .keying ]; then
+        keying=$(<.keying)
+        if [ "x$keying" = "x-algorithm rsa -pkeyopt rsa_keygen_bits:4096" ]; then
+          echo "Keying method: 4096 bit RSA keying with SHA-256 signing"
+        elif [ "x$keying" = "x-algorithm ed25519" ]; then
+          echo "Keying method: Ed25519 keying and signing"
+        else
+          echo "Keying method: [7mCustom![0m $keying"
+        fi
+      else
+        echo "Keying method: P-384 EC keying with ECDSA/SHA-256 signing"
+      fi
+      ;;
   esac
 }
 
 function usage {
   cat <<. >&2
-Usage:  unicert make {key,csr}
+Usage:  unicert CMD [SUBCMD] [options]
+
+Basics:
+        unicert make {key,csr}
           Create a private key or CSR
         unicert show {csr,crt}
           Detail a CSR or certificate
         unicert raw  {key,csr,crt,bundle}
           Print the ASCII format private key, CSR, certificate, or certificate bundle
+        unicert status
+          Detail the current situation
+        unicert {,help,usage}
+          Show this help
 
+Autorenewal:
         unicert renew
           Create a CSR for a renewal from an existing certificate (in ....crt.old)
 
+Autobundling:
         unicert bundle
           Create a bundle of this certificate and intermediate CAs
         unicert unbundle
           Remove certificate bundle
 
-        unicert status
-          Detail the current situation
-
+Certificate settings:
         unicert set shortname <shortname>
           Override the default shortname of the directory name
         unicert set fqdn <fqdn>
@@ -272,8 +309,16 @@ Usage:  unicert make {key,csr}
         unicert unset {shortname,fqdn}
           Unset a shortname or fqdn override
 
-        unicert {,help,usage}
-          Show this help
+Key settings:
+        unicert set keying {rsa,ec,ed}
+          Specify method for keying and signing
+            rsa: 4096 bit RSA keying with SHA-256 signing
+            ec: P-384 evilNIST curve keying with ECDSA/SHA-256 signing
+            ed: Ed25519 Edwards curve keying and signing
+        unicert unset keying
+          Remove keying method override
+        unicert show keying
+          Show the current keying and signing method
 .
   exit 1
 }
@@ -292,6 +337,7 @@ case $1 in
       crt) cshow crt ;;
       shortname) sshow shortname ;;
       fqdn) sshow fqdn ;;
+      keying) sshow keying ;;
       *) usage ;;
     esac
     ;;
@@ -312,6 +358,7 @@ case $1 in
     case $2 in
       shortname) sset shortname $3 ;;
       fqdn) sset fqdn $3 ;;
+      keying) shift; shift; sset keying $* ;;
       *) usage ;;
     esac
     ;;
@@ -319,6 +366,7 @@ case $1 in
     case $2 in
       shortname) sunset shortname ;;
       fqdn) sunset fqdn ;;
+      keying) sunset keying ;;
       *) usage ;;
     esac
     ;;
