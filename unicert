@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#!DESCRIBE: Easy management for UoY certificates
+
 if [ -f .shortname ]; then
   sys=$(<.shortname)
 else
@@ -130,6 +132,44 @@ function raw {
       echo $pp | openssl pkcs12 -nodes -password stdin -in $sys.pfx
       ;;
   esac
+}
+
+function copy {
+  if which xclip >/dev/null
+  then
+    case $1 in
+      crt)
+        cat $sys.crt | dos2unix | xclip -selection clipboard
+        echo "Certificate copied to clipboard."
+        ;;
+      bundle)
+        cat $sys.bundle | dos2unix | xclip -selection clipboard
+        echo "Certificate bundle copied to clipboard."
+        ;;
+      key)
+        cat $sys.key | dos2unix | xclip -selection clipboard
+        echo "Private key copied to clipboard."
+        ;;
+      pair)
+        if [ -f $sys.bundle ]
+        then
+          cat $sys.bundle $sys.key | dos2unix | xclip -selection clipboard
+          echo "Certificate bundle and private key copied to clipboard."
+        else
+          cat $sys.crt $sys.key | dos2unix | xclip -selection clipboard
+          echo "Certificate and private key copied to clipboard."
+        fi
+        name="Secure note name:"
+        name="$name [1;4m"
+        name="$name$(date -d "$(openssl x509 -startdate -noout -in $sys.crt | cut -d= -f2)" +%Y%m%d)"
+        name="$name $(openssl x509 -noout -subject -in $sys.crt | sed 's/.*CN = //;s/,.*//')"
+        name="$name[0m"
+        echo $name
+        ;;
+    esac
+  else
+    echo "Copy requires xclip. Exiting." >&2
+  fi
 }
 
 function renew {
@@ -322,6 +362,8 @@ Basics:
           Detail the current situation
         unicert {,help,usage}
           Show this help
+        unicert copy {crt,bundle,key,pair}
+          Copy object to the clipboard (requires xclip)
 
 Autorenewal:
         unicert renew
@@ -391,6 +433,15 @@ case $1 in
       crt) raw crt ;;
       bundle) raw bundle ;;
       pfx) raw pfx ;;
+      *) usage ;;
+    esac
+    ;;
+  copy)
+    case $2 in
+      crt) copy crt ;;
+      bundle) copy bundle ;;
+      key) copy key ;;
+      pair) copy pair ;;
       *) usage ;;
     esac
     ;;
