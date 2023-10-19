@@ -138,6 +138,10 @@ function copy {
   if which xclip >/dev/null
   then
     case $1 in
+      csr)
+        cat $sys.csr | dos2unix | xclip -selection clipboard
+        echo "Certificate signing request copied to clipboard."
+        ;;
       crt)
         cat $sys.crt | dos2unix | xclip -selection clipboard
         echo "Certificate copied to clipboard."
@@ -362,7 +366,7 @@ Basics:
           Detail the current situation
         unicert {,help,usage}
           Show this help
-        unicert copy {crt,bundle,key,pair}
+        unicert copy {csr,crt,bundle,key,pair}
           Copy object to the clipboard (requires xclip)
 
 Autorenewal:
@@ -438,6 +442,7 @@ case $1 in
     ;;
   copy)
     case $2 in
+      csr) copy csr ;;
       crt) copy crt ;;
       bundle) copy bundle ;;
       key) copy key ;;
