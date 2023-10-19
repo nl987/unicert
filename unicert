@@ -94,6 +94,20 @@ subjectAltName = @alt_names
   rm $tmpl
 }
 
+function csfinger {
+  if [ ! -f $sys.crt ]; then
+    echo No certificate found >&2
+    exit 1
+  fi
+
+  echo -n "SHA256 "
+  openssl x509 -noout -fingerprint -sha256 -inform pem -in $sys.crt | cut -d= -f2
+  echo -n "SHA1   "
+  openssl x509 -noout -fingerprint -sha1   -inform pem -in $sys.crt | cut -d= -f2
+  echo -n "MD5    "
+  openssl x509 -noout -fingerprint -md5    -inform pem -in $sys.crt | cut -d= -f2
+}
+
 function cshow {
   if [ ! -f $sys.$1 ]; then
     case $1 in
@@ -359,7 +373,9 @@ Basics:
         unicert make {key,csr}
           Create a private key or CSR
         unicert show {csr,crt}
-          Detail a CSR or certificate
+          Detail a signing request or certificate
+        unicert show fingerprints
+          Print SHA256, SHA1, and MD5 fingerprints for the certificate
         unicert raw  {key,csr,crt,bundle}
           Print the ASCII format private key, CSR, certificate, or certificate bundle
         unicert status
@@ -424,6 +440,7 @@ case $1 in
     case $2 in
       csr) cshow csr ;;
       crt) cshow crt ;;
+      fingerprints) csfinger ;;
       shortname) sshow shortname ;;
       fqdn) sshow fqdn ;;
       keying) sshow keying ;;
