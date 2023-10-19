@@ -101,11 +101,17 @@ function csfinger {
   fi
 
   echo -n "SHA256 "
-  openssl x509 -noout -fingerprint -sha256 -inform pem -in $sys.crt | cut -d= -f2
+  openssl x509 -noout -fingerprint -sha256 -inform pem -in $sys.crt | \
+    cut -d= -f2 | \
+    tr "A-Z" "a-z"
   echo -n "SHA1   "
-  openssl x509 -noout -fingerprint -sha1   -inform pem -in $sys.crt | cut -d= -f2
+  openssl x509 -noout -fingerprint -sha1   -inform pem -in $sys.crt | \
+    cut -d= -f2 | \
+    tr "A-Z" "a-z"
   echo -n "MD5    "
-  openssl x509 -noout -fingerprint -md5    -inform pem -in $sys.crt | cut -d= -f2
+  openssl x509 -noout -fingerprint -md5    -inform pem -in $sys.crt | \
+    cut -d= -f2 | \
+    tr "A-Z" "a-z"
 }
 
 function cshow {
